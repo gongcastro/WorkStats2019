@@ -1,0 +1,522 @@
+---
+title: "Power analysis in Developmental Psychology"
+author: "Gonzalo García-Castro"
+date: "25/07/2019"
+output: ioslides_presentation
+css: "2019-07-25_workstats_power.css"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	include = TRUE
+)
+```
+
+```{r load_packages, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+library(magrittr)
+library(dplyr)
+library(tidyr)
+library(forcats)
+library(broom)
+library(purrr)
+library(ggfortify)
+library(ggplot2)
+library(ggthemes)
+library(knitr)
+
+alpha <- 0.05
+```
+
+# Some context...
+
+## Statistical inference
+
+The goal of every statistical inference is to:
+
+* Make the decission most **supported by data**
+* Accurately represent our **uncertainty** on such decission
+
+```{r decissions, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+data_decission <- data.frame(
+  experiment = c(rep("More confidence", 10000),
+                 rep("Less confidence", 60)),
+  group = c(rep("Monolinguals", 5000),
+            rep("Bilinguals", 5000),
+            rep("Monolinguals", 30),
+            rep("Bilinguals", 30)),
+  score = c(rnorm(n = 5000, mean = 0, sd = 1),
+            rnorm(n = 5000, mean = 5, sd = 1),
+            rnorm(n = 30, mean = 0, sd = 2),
+            rnorm(n = 30, mean = 5, sd = 2))
+)
+
+summary_decission <- data_decission %>%
+  group_by(experiment, group) %>%
+  summarise(n = n(), mean = mean(score))
+
+ggplot(data_decission, aes(x = score, fill = group)) +
+  geom_density(alpha = 0.5, bw = 1.5) +
+  geom_vline(data = summary_decission, aes(xintercept = mean)) +
+  geom_label(data = summary_decission, aes(x = mean, y = 0.1),
+             label = paste("n =", summary_decission$n), fill = "white") +
+  labs(x = "Score", y = "Probability density", fill = "Group",
+       title = "Same decission, different confidence",
+       subtitle = "Red lines: Mean") +
+  scale_fill_few(palette = "Medium") +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black"),
+    legend.position = "none"
+  ) +
+  facet_wrap(~experiment, ncol = 1)
+
+
+```
+
+## NHST | One path toward statistical inference
+
+**Null Hypothesis Significance Testing (NHST)**
+
+Specify a null hypothesis ($H_0$) and an alternative hypothesis ($H_1$). 
+
+Test the $H_0$ and decide whether to reject it or not:
+
+1. Asume $H_0$ is true.
+2. Calculate a statistical value:
+    a) That reflects the parameter we are interested in (e.g. *t*-value for differences in means or *F*-value for variance explained by factor)
+    b) For which we know its probabilistic distribution at the population level (e.g. Student's *t* or Snedecor's *F*)
+3. If the probability associated to our statistic (according to the distribution) is lower than our significance criterion ($\alpha$), we reject the $H_0$: our data is very unlikely to have been generated under such scenario.
+
+## Null Hypothesis Significance Testing
+
+Specify a null hypothesis ($H_0$) and an alternative hypothesis ($H_1$). 
+
+Test the $H_0$ and decide whether to reject it or not:
+
+1. Asume the **null hypothesis** is true.
+2. Calculate a statistical value:
+    a) That reflects the parameter we are interested in (e.g. *t*-value for differences in means or *F*-value for variance explained by factor)
+    b) For which we know its probabilistic distribution at the population level (e.g. Student's *t* or Snedecor's *F*)
+3. If the probability (*p*) associated to our statistic (according to the distribution) is lower than our **significance** criterion ($\alpha$), we reject the null hypothesis: our data is very unlikely to have been generated under such scenario.
+
+## *p*-values
+
+*p*-values in the context of NHST indicate the probability of our data (i.e. statistic of contrast) under the null hypothesis.
+
+We compare the *p*-value we have against our significance criterion.
+
+Significance criterion ($\alpha$): how unlikely must our data be to be considered too unlikely to have been generated under the null hypothesis.
+
+<center>If *p*-value < $\alpha$ $\to$ Reject $H_0$</center>
+
+## *p*-values
+
+Let's take a look at Daniel Laken's shiny app for exploring how *p*-values behave under some conditions: [[link]](https://lakens.shinyapps.io/p-curves/).
+
+* Under $H_0$, all *p*-values are equally likely.
+* Under $H_1$, lower *p*-values are more likely.
+
+## Two types of incorrect decisions
+
+Statistical inference is **probabilistic**. We cannot know if our decission to reject (or not to reject) the null hypothesis is correct. If we knew it, statistical inference would be unnecessary.
+
+We can make two types or errors:
+
+* **False positives** (Type I error, $\alpha$): There is not an effect, we found an effect
+* **False negatives** (Type II error, $1- \beta$): There is an effect, we did not find an effect.
+
+Every time we reject $H_0$, it could be a Type I error.
+Every time we do not reject $H_1$, it could be a Type II error.
+
+## Controlling our error rates | Type I error rate
+
+Specify the cost of each error, and adjust the rest of parameters to them.
+
+Assume there is **no effect**. The probability of (incorrectly) rejecting $H_0$ is $\alpha$.
+
+If we set $\alpha$ very low, only very unlikely *p*-values will lead to the rejection of $H_0$
+If we set $\alpha$ very high, we could reject $H_0$ when *p*-values are quite high.
+
+Usually false positives are considered more **costly**, so we usually fix $\alpha$ at a very low level (e.g. 0.05), and adjust the rest of parameters.
+
+## Controlling our error rates | Type I error rate
+
+I need to get an NBA player. How can I select one person to make my best guess?
+
+[Article](https://www.si.com/vault/2015/07/05/106084744/larger-than-real-life) by Pablo S. Torre for *Sports Illustrated*: there is a .17 probability that, if you are a 7 feet high American man, you are an NBA player.
+
+
+## Controlling our error rates | Type II error rate
+
+Assume there **is** an effect. The probability of (incorrectly) not rejecting $H_0$ is $\beta$.
+
+Given $\alpha$, we will try to minimise $\beta$ (i.e. to maximise 1-$\beta$, statistical power), as much as possible.
+
+What does statistical power depend on?
+
+* Significance criterion ($\alpha$): fixed *a priori*
+* **Effect size of interest**: defined by experimenter based on theoretical or empirical literature.
+* Type of analysis: defined by experimenter.
+
+Lets guess our power!
+
+## Controlling our error rates | Type II error rate
+
+Assume there **is** an effect. The probability of (incorrectly) not rejecting $H_0$ is $\beta$.
+
+Given $\alpha$, we will try to minimise $\beta$ (i.e. to maximise 1-$\beta$, statistical power), as much as possible.
+
+What does statistical power depend on?
+
+* Significance criterion ($\alpha$): fixed *a priori*
+* **Effect size of interest** (ES): defined by experimenter based on theoretical or empirical literature.
+* Type of analysis: defined by experimenter.
+* **Sample size** (N)
+
+Lets guess our power!
+
+## Our data
+
+**Visual word paradigm** task
+
+Two objects are presented, one of them is named.
+
+How long do **monolinguals** vs. **bilinguals** look to the correct (target) object?
+
+Independent *t*-test comparing monolinguals' and bilinguals' looking time to target.
+
+
+## Power analysis | *A priori*
+
+Given $\alpha$, *ES*, and having decided our analysis, what *N* do we need to achieve given desired power?
+
+We know...
+
+* Significance criterion ($\alpha$): 0.05.
+* Desired stat. power (1-$\beta$): 0.80.
+* Analysis: independent two-samples *t*-test
+
+We don't know...
+
+* Effect size (*ES*): How big is my effect size of interest? NOT THE ONE I FOUND ONCE I HAVE PERFORMED THE ANALYSIS! Our best guess is a Cohen's *d* of 0.6.
+
+We want to calculate:
+
+* Sample size (*N*)
+
+## Power analysis | *A priori*
+
+```{r power_gaze, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+pwr::pwr.t.test(
+  sig.level = 0.05,          # significance criterion (alpha)
+  d = 0.6,                   # effect size of interest (ES)
+  type = "two.sample",       # two independent samples
+  alternative = "two.sided", # both BL>ML and ML>BL can lead to rejection of H0
+  power = 0.80               # desired statistical power
+)
+```
+
+```{r power_gaze_plot, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+pwr::pwr.t.test(
+  sig.level = 0.05,          # significance criterion (alpha)
+  d = 0.6,                   # effect size of interest (ES)
+  type = "two.sample",       # two independent samples
+  alternative = "two.sided", # both BL>ML and ML>BL can lead to rejection of H0
+  power = 0.80               # desired statistical power
+) %>%
+  pwr::plot.power.htest(.) # show power curve
+```
+
+## Power analysis | *A posteriori*
+
+Our data:
+
+<br>
+
+```{r data_gaze, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+data <- data.frame(
+  participant = paste0("id", 1:80),
+  group = factor(rep(c("0", "1"), each = 40), labels = c("Monolinguals", "Bilinguals")),
+  looking_time = c(rnorm(n = 40, mean = 1000, sd = 300),
+                   rnorm(n = 40, mean = 1200, sd = 300))
+) %>%
+  mutate(
+    group = fct_inorder(group)
+  )
+
+kable(rbind(head(data), tail(data)), digits = 2, col.names = c("Participant", "Group", "Looking time (ms)"), row.names = FALSE, align = "c")
+
+```
+
+<br>
+
+```{r summary_gaze, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+summary <- data %>%
+  group_by(group) %>%
+  summarise(n = n(),
+            mean = mean(looking_time),
+            sd = mean(looking_time),
+            sem = sd/sqrt(n))
+
+kable(summary, digits = 2, col.names = c("Group", "n", "Mean (ms)", "SD", "SEM"), row.names = FALSE, align = "c")
+```
+
+<br>
+
+```{r plot_gaze, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(data, aes(x = group, y = looking_time, colour = group)) +
+  geom_violin(fill = "transparent", size = 0.75, show.legend = FALSE) +
+  geom_jitter(size = 4, alpha = 0.7, width = 0.1, show.legend = FALSE) +
+  geom_boxplot(aes(middle = mean(looking_time)), varwidth = 0.1, fill = "transparent", colour = "black", width = 0.2, size = 0.75) +
+  labs(x = "Group", y = "Looking time (ms)") + 
+  scale_color_few(palette = "Medium") +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black")
+  )
+```
+
+<br>
+
+**Significance testing**:
+
+```{r t.test, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+t.test(
+  formula = looking_time ~ group, # specify response variable and predictors
+  data = data                     # specify table with data
+)
+
+```
+
+Effect size: Cohen's *d* = $t\times\sqrt{\frac{1}{n_1}+\frac{1}{n_2}}$
+
+```{r effect_size, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+t.test <- t.test(
+  formula = looking_time ~ group, # specify response variable and predictors
+  data = data                     # specify table with data
+)
+es <- t.test$statistic/sqrt(40)
+
+es
+```
+
+Our *t*-test yields a *p*-value lower than our $\alpha$ (0.5).
+
+We reject the null hypothesis of equal looking times in monolinguals and bilinguals.
+
+**What is the power of this test?**
+
+* We can't get more participants
+* We still want to keep a decent power!
+
+*What is the lowest effect size our test would be able to detect?*
+
+Get critical *t*-value: `t_critical = abs(qt(p = alpha, df = n-2)/sqrt(2))`
+
+```{r t_critical, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+abs(qt(p = 0.05/2, df = (40-2)))
+
+```
+
+Get critical Cohen's *d*: `d_critical = t_critical/sqrt(n)`
+
+```{r d_critical, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+abs(qt(p = 0.05/2, df = (40-2)))/sqrt(40)
+
+```
+
+# Simulation-based power analysis
+
+## Same experiment over 1000 repetitions
+
+```{r rep_gaze, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+data_gaze_big <-
+  vector("list", length = 1000) %>%
+  set_names(paste0("experiment", 1:1000)) %>%
+  map(
+    ~data.frame(
+      participant = paste0("id", 1:80),
+      group = factor(rep(c("0", "1"), each = 40), labels = c("Monolinguals", "Bilinguals")),
+      looking_time = c(rnorm(n = 40, mean = 1000, sd = 300),
+                       rnorm(n = 40, mean = 1200, sd = 300))
+    )
+  )
+
+summary_gaze_big <- data_gaze_big %>%
+  map(~group_by(., group)) %>%
+  map(~summarise(.,
+                 n = n(),
+                 mean = mean(looking_time),
+                 sd = sd(looking_time),
+                 sem = sd/sqrt(n))) %>%
+  bind_rows(., .id = "experiment")
+```
+
+```{r rep_gaze_plot_big, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+ggplot(summary_gaze_big, aes(x = group, y = mean, colour = group)) +
+  geom_jitter(width = 0.1, alpha = 0.7, size = 1) +
+  stat_summary(fun.y = mean, geom = "point", size = 4, colour = "black") +
+  labs(x = "Group", y = "Mean looking time (ms)",
+       "Mean looking time over 1000 experiments") +
+  scale_colour_few(palette = "Medium") +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black"),
+    panel.grid.major.x = element_blank(),
+    legend.position = "none"
+  )
+```
+
+```{r reps_ttest, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+t.test.list.big <- data_gaze_big %>%
+  map(~t.test(looking_time ~ group, data = .))
+t.test.big <-
+  tibble(
+    t = unlist(map(t.test.list.big, "statistic")),
+    df = unlist(map(t.test.list.big, "parameter")),
+    p = unlist(map(t.test.list.big, "p.value"))
+  )
+```
+
+```{r reps_ttest_plot, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(t.test.big, aes(x = p)) +
+  geom_histogram(bins = 20, fill = "white", colour = "black") +
+  labs(x = "P-value", y = "Numer of p-values across 1000 experiments",
+       title = "P values across 100 simulations of the same experiment") +
+  scale_x_continuous(breaks = seq(0, 1, 0.05)) +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black")
+  )
+```
+
+## When the effect is small
+
+```{r rep_gaze_medium, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+data_gaze_medium <-
+  vector("list", length = 1000) %>%
+  set_names(paste0("experiment", 1:1000)) %>%
+  map(
+    ~data.frame(
+      participant = paste0("id", 1:80),
+      group = factor(rep(c("0", "1"), each = 40), labels = c("Monolinguals", "Bilinguals")),
+      looking_time = c(rnorm(n = 40, mean = 1000, sd = 300),
+                       rnorm(n = 40, mean = 1050, sd = 300))
+    )
+  )
+
+summary_gaze_medium <- data_gaze_medium %>%
+  map(~group_by(., group)) %>%
+  map(~summarise(.,
+                 n = n(),
+                 mean = mean(looking_time),
+                 sd = sd(looking_time),
+                 sem = sd/sqrt(n))) %>%
+  bind_rows(., .id = "experiment")
+```
+
+```{r rep_gaze_plot_medium, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+ggplot(summary_gaze_medium, aes(x = group, y = mean, colour = group)) +
+  geom_jitter(width = 0.1, alpha = 0.7, size = 1) +
+  stat_summary(fun.y = mean, geom = "point", size = 4, colour = "black") +
+  labs(x = "Group", y = "Mean looking time (ms)",
+       "Mean looking time over 1000 experiments") +
+  scale_colour_few(palette = "Medium") +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black"),
+    panel.grid.major.x = element_blank(),
+    legend.position = "none"
+  )
+```
+
+```{r reps_ttest_medium, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+t.test.list.medium <- data_gaze_medium %>%
+  map(~t.test(looking_time ~ group, data = .))
+t.test.medium <-
+  tibble(
+    t = unlist(map(t.test.list.medium, "statistic")),
+    df = unlist(map(t.test.list.medium, "parameter")),
+    p = unlist(map(t.test.list.medium, "p.value"))
+  )
+```
+
+```{r reps_ttest_plot_medium, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(t.test.medium, aes(x = p)) +
+  geom_histogram(bins = 20, fill = "white", colour = "black") +
+  labs(x = "P-value", y = "Numer of p-values across 1000 experiments",
+       title = "P values across 100 simulations of the same experiment") +
+  scale_x_continuous(breaks = seq(0, 1, 0.05)) +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black")
+  )
+```
+
+## When there is no effect
+
+```{r rep_gaze_no, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+data_gaze_no <-
+  vector("list", length = 1000) %>%
+  set_names(paste0("experiment", 1:1000)) %>%
+  map(
+    ~data.frame(
+      participant = paste0("id", 1:80),
+      group = factor(rep(c("0", "1"), each = 40), labels = c("Monolinguals", "Bilinguals")),
+      looking_time = c(rnorm(n = 40, mean = 1000, sd = 300),
+                       rnorm(n = 40, mean = 1000, sd = 300))
+    )
+  )
+
+summary_gaze_no <- data_gaze_no %>%
+  map(~group_by(., group)) %>%
+  map(~summarise(.,
+                 n = n(),
+                 mean = mean(looking_time),
+                 sd = sd(looking_time),
+                 sem = sd/sqrt(n))) %>%
+  bind_rows(., .id = "experiment")
+```
+
+```{r rep_gaze_plot_no, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+ggplot(summary_gaze_no, aes(x = group, y = mean, colour = group)) +
+  geom_jitter(width = 0.1, alpha = 0.7, size = 1) +
+  stat_summary(fun.y = mean, geom = "point", size = 4, colour = "black") +
+  labs(x = "Group", y = "Mean looking time (ms)",
+       "Mean looking time over 1000 experiments") +
+  scale_colour_few(palette = "Medium") +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black"),
+    panel.grid.major.x = element_blank(),
+    legend.position = "none"
+  )
+```
+
+```{r reps_ttest_no, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+t.test.list.no <- data_gaze_no %>%
+  map(~t.test(looking_time ~ group, data = .))
+t.test.no <-
+  tibble(
+    t = unlist(map(t.test.list.no, "statistic")),
+    df = unlist(map(t.test.list.no, "parameter")),
+    p = unlist(map(t.test.list.no, "p.value"))
+  )
+```
+
+```{r reps_ttest_plot_no, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(t.test.no, aes(x = p)) +
+  geom_histogram(bins = 20, fill = "white", colour = "black") +
+  labs(x = "P-value", y = "Numer of p-values across 1000 experiments",
+       title = "P values across 100 simulations of the same experiment") +
+  scale_x_continuous(breaks = seq(0, 1, 0.05)) +
+  theme(
+    text = element_text(size = 12),
+    axis.text = element_text(colour = "black")
+  )
+```

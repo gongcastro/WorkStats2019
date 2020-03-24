@@ -1,0 +1,39 @@
+a, body, p, li, ul {
+  font-size: 22pt;
+  color: black;
+}
+
+h1, h2 {
+  font-size: 35pt;
+  color: black;
+}
+
+/* title slide: title */
+slides > slide.title-slide h1{
+  color: black;
+  font-size: 50px;
+  text-align: center;
+  width: 90%;
+}
+
+/* title slide: body */
+slides > slide.title-slide p{
+  color: black;
+  font-size: 25px;
+  text-align: center;
+  width: 90%;
+}
+
+#myImagePageHor img {
+  width: 400px;
+  height: 300px;
+}
+
+#myImagePageVer img {
+  width: 600px;
+  height: 600px;
+}
+
+slides > slide {
+  overflow-y: auto !important;
+}
